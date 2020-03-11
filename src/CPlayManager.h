@@ -5,6 +5,8 @@
 #include <mutex>
 #include <map>
 #include <vector>
+#include <shellapi.h>
+#include <shlobj_core.h>
 
 #define EMPTY "Nothing"
 extern char UplayDllPath[MAX_PATH];

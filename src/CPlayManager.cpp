@@ -76,8 +76,21 @@ namespace CPlay
 		{
 			if (std::strcmp(Uplay_Configuration::SaveDir, "Auto") == 0)
 			{
+				// directory in roaming by default
+				char SavingDir[MAX_PATH] = { 0 };
+				bool SetSlash = true;
+				if (!SUCCEEDED(SHGetFolderPathA(NULL, CSIDL_APPDATA | CSIDL_FLAG_CREATE, NULL, 0, SavingDir))) {
+					std::strcpy(SavingDir, UplayDllPath);
+					SetSlash = false;
+				}
+
 				std::memset(Uplay_Configuration::SaveDir, 0, sizeof(Uplay_Configuration::SaveDir));
-				std::strcpy(Uplay_Configuration::SaveDir, UplayDllPath);
+				std::strcpy(Uplay_Configuration::SaveDir, SavingDir);
+
+				if (SetSlash) {
+					std::strcat(Uplay_Configuration::SaveDir, "\\");
+				}
+
 				std::strcat(Uplay_Configuration::SaveDir, "UbiStorage\\");
 				std::strcat(Uplay_Configuration::SaveDir, Uplay_Configuration::UserName);
 				std::strcat(Uplay_Configuration::SaveDir, "\\");
@@ -87,19 +100,13 @@ namespace CPlay
 			}
 			else
 			{
-				int c = 0;
+				int SlashP = std::strlen(Uplay_Configuration::SaveDir) - 1;
 
-				// Search if the last byte was a "/".
-				for (;;)
-				{
-					if (Uplay_Configuration::SaveDir[c] == NULL)
-					{
-						if (Uplay_Configuration::SaveDir[c - 1] != '\\')
-							std::strcpy(&Uplay_Configuration::SaveDir[c], "\\");
-						break;
-					}
-					c++;
+				// Search if the last byte was a "\".
+				if (Uplay_Configuration::SaveDir[SlashP] != '\\') {
+					std::strcat(Uplay_Configuration::SaveDir, "\\");
 				}
+
 				std::strcat(Uplay_Configuration::SaveDir, "UbiStorage\\");
 				std::strcat(Uplay_Configuration::SaveDir, Uplay_Configuration::UserName);
 				std::strcat(Uplay_Configuration::SaveDir, "\\");
@@ -123,8 +130,8 @@ namespace CPlay
 		{
 			if (Uplay_Configuration::SaveDir[Arr] == NULL)
 				break;
-			std::memcpy(&TempDir[Arr], &Uplay_Configuration::SaveDir[Arr], 1);
-			if (Uplay_Configuration::SaveDir[Arr] == '\\') {
+			TempDir[Arr] = Uplay_Configuration::SaveDir[Arr];
+			if (Uplay_Configuration::SaveDir[Arr] == '\\' || Uplay_Configuration::SaveDir[Arr] == '/') {
 				DWORD ftyp = GetFileAttributesA(TempDir);
 				if (ftyp != INVALID_FILE_ATTRIBUTES && ftyp & FILE_ATTRIBUTE_DIRECTORY) {
 					Arr++;
@@ -146,23 +153,22 @@ namespace CPlay
 		char INI[MAX_PATH] = { 0 };					// Get ini directory
 		GetModuleFileNameA(MainModule, INI, MAX_PATH);
 		lstrcpyA(UplayDllPath, INI);
+
 		int Size = lstrlenA(INI);
-		for (int i = Size; i > 0; i--)
-		{
-			if (INI[i] == '\\')
-			{
-				RtlFillMemory(&UplayDllPath[i + 1], (Size - i) + 1, 0);
+		for (int i = Size; i > 0; i--) {
+			if (INI[i] == '\\') {
+				ZeroMemory(&UplayDllPath[i + 1], (Size - i) + 1);
 				lstrcpyA(&INI[i], "\\CPlay.ini");
 				break;
 			}
 		}
-		if (!IsTargetExist(INI))
-		{
+		if (!IsTargetExist(INI)) {
 			MessageBoxA(0, "Couldn't find CPlay.ini.", "CPlay", MB_ICONERROR);
 			ExitProcess(0);
 		}
+
 		Uplay_Configuration::appowned = GetPrivateProfileIntA("Uplay", "IsAppOwned", 0, INI) == TRUE;		// Read ini informations
-		Uplay_Configuration::Offline = GetPrivateProfileIntA("Uplay", "UplayConnection", 0, INI) == TRUE;
+		Uplay_Configuration::Offline = GetPrivateProfileIntA("Uplay", "UplayConnection", 0, INI) != TRUE;
 		Uplay_Configuration::gameAppId = GetPrivateProfileIntA("Uplay", "AppId", 0, INI);
 		GetPrivateProfileStringA("Uplay", "Username", "CPlay", Uplay_Configuration::UserName, 0x200, INI);
 		GetPrivateProfileStringA("Uplay", "Email", "UplayEmu@cplay42.com", Uplay_Configuration::UserEmail, 0x200, INI);
